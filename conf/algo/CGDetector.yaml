@@ -1,0 +1,28 @@
+# @package _global_
+defaults:
+  - base
+  - /ft_extraction: CLIP_H14
+  # Other options: segmentation=YoloMobileSAM (fast) or segmentation=GTProcthor (privileged)
+  - override /segmentation: SAM3
+  - _self_
+
+mapping:
+  object_factory:
+    _target_: concept_graphs.mapping.Object.RunningAverageObjectFactory
+    semantic_mode: mean
+  similarity:
+    geometric_similarity:
+      agg: dice
+  n_min_segments: 3
+  grace_min_segments: 30
+  filter_min_every: 500
+  self_merge_every: 5
+  downsample_every: 5
+  denoise_every: -1
+
+# No background filtering
+perception:
+  segment_scoring_method: area
+  crop_bg_color: null
+  min_points_pcd: 5
+  min_mask_area_px: 50

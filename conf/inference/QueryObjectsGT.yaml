@@ -1,0 +1,11 @@
+_target_: concept_graphs.inference.MapQueryEngine.MapQueryEngineGT
+map_path: ${map_path}
+ft_extractor: ???
+semantic_sim: ???
+verifier: ???
+receptacles_bbox: ???
+pickupable_to_receptacles: ???
+pickupable_bbox: ???
+pickupable_existence: ???
+top_k: ${top_k}
+device: ${device}

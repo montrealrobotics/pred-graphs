@@ -1,0 +1,8 @@
+# @package _global_
+# Relative paths are resolved from the launch directory (run scripts from the repository root)
+data_root: data
+cache_dir: ${data_root}/cache # Model checkpoints
+data_dir: ${data_root}/semistaticsim/test/${layout_num}/0/privileged
+estimators_dir: ${data_root}/estimators
+maps_dir: ${data_root}/maps
+output_dir: ${data_root}/outputs

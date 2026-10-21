@@ -1,0 +1,28 @@
+defaults:
+  - pcd_callbacks@object_factory.denoising_callback: DBSCAN
+  - pcd_callbacks@object_factory.downsampling_callback: VoxelDownSampling
+  - similarity: CombinedSimilarity
+  - _self_
+
+_target_: concept_graphs.mapping.ObjectMap.ObjectMapFactory
+
+min_points_pcd: 5
+
+object_factory:
+  _target_: concept_graphs.mapping.Object.RunningAverageObjectFactory
+  semantic_mode: mean
+  segment_heap_size: 12
+  max_points_pcd: 8000
+
+similarity:
+  geometric_similarity:
+    agg: dice
+
+n_min_segments: 1
+grace_min_segments: 1
+filter_min_every: 1
+self_merge_every: 1
+downsample_every: 1
+denoise_every: -1
+
+device: ${device}

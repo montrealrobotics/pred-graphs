@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "concept-graphs"
+version = "0.1.0"
+description = "Predictive Graphs: object maps with Perpetua* estimators for semi-static environments."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+dependencies = [
+    "torch",
+    "torchvision",
+    "jax==0.8.1 ; sys_platform == 'darwin'",
+    "jax[cuda12]==0.8.1 ; sys_platform == 'linux'",
+    "numpy==2.1.2",
+    "scipy",
+    "open3d",
+    "opencv-python",
+    "pillow",
+    "matplotlib",
+    "tqdm",
+    "dill",
+    "natsort",
+    "pyyaml",
+    "rich",
+    "colorama",
+    "hydra-core>=1.3.2",
+    "hydra-colorlog>=1.2.0",
+    "open_clip_torch",
+    "ultralytics",
+    "clip@git+https://github.com/ultralytics/CLIP.git@7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40",
+    "mobile_sam@git+https://github.com/ChaoningZhang/MobileSAM.git@34bbbfdface3c18e5221aa7de6032d7220c6c6a1",
+    "sam3@git+https://github.com/kumaradityag/sam3.git@140986d93b53823cd0ad3f6dcafde354554ab769",
+    "einops",
+    "decord ; sys_platform == 'linux'",
+    "pycocotools",
+    "openai",
+    "langchain",
+    "langchain-openai",
+    "viser",
+    "semistaticsim==0.6.0",
+    "rgbd-dataset",
+    "perpetua2[procthor]",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://montrealrobotics.ca/predictive-graphs/"
+Repository = "https://github.com/montrealrobotics/pred-graphs"
+
+[tool.setuptools.packages.find]
+include = ["concept_graphs*"]
+
+[tool.uv.workspace]
+members = [
+    "rgbd_dataset",
+    "perpetua2",
+]
+
+[tool.uv.sources]
+rgbd-dataset = { workspace = true }
+perpetua2 = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

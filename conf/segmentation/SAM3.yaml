@@ -1,0 +1,6 @@
+_target_: concept_graphs.perception.segmentation.SAM3.SAM3
+model_type: sam3
+queries_path: assets/procthor_classes.txt
+threshold: 0.5
+sam_batch_size: 55 # Adjust based on your GPU memory
+device: ${device}

@@ -1,0 +1,11 @@
+_target_: concept_graphs.mapping.similarity.Similarity.CombinedSimilarity
+geometric_similarity:
+  _target_: concept_graphs.mapping.similarity.geometric.PointCloudOverlapClosestK
+  agg: max
+  eps: ${overlap_eps}
+  k: 10
+semantic_similarity:
+  _target_: concept_graphs.mapping.similarity.semantic.CosineSimilarity01
+geometric_sim_thresh: ${geometric_sim_thresh}
+semantic_sim_thresh: ${semantic_sim_thresh}
+sim_thresh: ${sim_thresh}

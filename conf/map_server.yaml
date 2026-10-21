@@ -1,0 +1,19 @@
+defaults:
+  - server: PerpetuaMapServer
+  - mapping/layout: layout
+  - paths: default
+  - override hydra/job_logging: custom_colorlog
+  - override hydra/hydra_logging: colorlog
+  - _self_
+  
+map_path: ${maps_dir}/scene_${layout_num}
+device: cuda
+p_m: 0.05
+p_f: 0.05
+# decay_rate=ϵ^(1/H), where H is observation horizon (250) and eps (0.1) is target influence value of Hth obs
+decay_rate: 0.990
+# Evidence annealing factor exp(−λ⋅time)=ϵ 
+# \lambda = -\frac{1}{time} \log(\epsilon) if time=0.5 units (30m) and eps=0.01, then λ=9.21034
+alpha: 9.21034
+map_time: 504 # Must match the time the map was built at
+seed: 42

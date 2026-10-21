@@ -1,0 +1,15 @@
+defaults:
+  - /server@server: PrivilegedProcTHORServer
+
+_target_: concept_graphs.inference.agent.PrivilegedProcTHORAgent.PrivilegedProcTHORAgent
+sim: null  # to be filled in at runtime
+model: "openai:gpt-5.2" # Used for open-vocabulary queries (needs OPENAI_API_KEY)
+top_k: ${top_k}
+max_attempts: ${max_attempts}
+goal_thresh: ${goal_thresh}
+step_every: ${step_every}
+do_update: ${do_update}
+predict_every: ${predict_every}
+obj_threshold: ${obj_threshold}
+max_iterations: ${max_iterations}
+name: "PrivilegedProcTHORAgent"

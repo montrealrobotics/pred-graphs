@@ -1,0 +1,21 @@
+# @package _global_
+defaults:
+  - /ft_extraction: CLIP_H14
+  - /vlm@vlm_verifier: OpenAIVerifier
+  - /inference: QueryObjects
+  - _self_
+
+name: "verifier"
+top_k: 3
+use_hungarian: true # Set to true to use Hungarian matching instead of sequential top-k
+use_vlm_verification: false # Set to true to verify matches with an OpenAI VLM (needs OPENAI_API_KEY)
+receptacle_breakaway_margin: 0.05 # Minimum IoU margin required to reassign a receptacle to a different canonical object group
+min_dist_sq: 1.0 # Max dist reqd to match a pickupable to a receptacle (squared, in meters)
+
+semantic_similarity:
+  _target_: concept_graphs.mapping.similarity.semantic.CosineSimilarity01
+
+vlm_verifier:
+  max_images: 5
+  retry_attempts: 3
+  verify_mode: single # Options: majority_vote, unanimous, single

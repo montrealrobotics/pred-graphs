@@ -1,0 +1,149 @@
+import datetime
+import os
+import time
+import json
+import logging
+from pathlib import Path
+
+import hydra
+from omegaconf import DictConfig, OmegaConf
+from tqdm import tqdm
+
+# Disable JAX GPU memory pre-allocation to avoid OOM
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
+
+from concept_graphs.utils import set_seed
+from concept_graphs.mapping.utils import test_unique_segments
+
+
+# A logger for this file
+log = logging.getLogger(__name__)
+
+
+def main(cfg: DictConfig) -> Path | None:
+    """
+    Main mapping function that returns the map save path.
+
+    Returns:
+        Path to the saved map directory, or None if save_map is False.
+    """
+    set_seed(cfg.seed)
+
+    log.info(f"Running algo {cfg.name}...")
+
+    log.info("Loading data and models...")
+    dataset = hydra.utils.instantiate(cfg.dataset)
+    dataloader = hydra.utils.instantiate(cfg.dataloader, dataset=dataset)
+    log.info(f"Loaded dataset {dataset.name}.")
+
+    segmentation_model = hydra.utils.instantiate(cfg.segmentation)
+    ft_extractor = hydra.utils.instantiate(cfg.ft_extraction)
+    perception_pipeline = hydra.utils.instantiate(
+        cfg.perception, segmentation_model=segmentation_model, ft_extractor=ft_extractor
+    )
+
+    log.info("Mapping...")
+    progress_bar = tqdm(total=len(dataset))
+    progress_bar.set_description(f"Mapping")
+    start = time.time()
+    n_segments = 0
+
+    main_map = hydra.utils.instantiate(cfg.mapping)
+
+    for obs in dataloader:
+        segments = perception_pipeline(
+            obs["rgb"],
+            obs["depth"],
+            obs["intrinsics"],
+            obs["camera_pose"],
+            obs.get("semantics", None),
+        )
+
+        timestamp = obs.get("timestamp", None)
+
+        if segments is None:
+            continue
+
+        local_map = hydra.utils.instantiate(cfg.mapping)
+        local_map.from_perception(**segments, timestamp=timestamp)
+
+        main_map += local_map
+
+        progress_bar.update(1)
+        n_segments += len(local_map)
+        progress_bar.set_postfix(
+            objects=len(main_map),
+            map_segments=main_map.n_segments,
+            detected_segments=n_segments,
+        )
+
+    # Postprocessing
+    main_map.filter_min_segments(n_min_segments=cfg.final_min_segments, grace=False)
+    main_map.downsample_objects()
+    for _ in range(2):
+        main_map.denoise_objects()
+        main_map.self_merge()
+    main_map.downsample_objects()
+    main_map.filter_min_points_pcd()
+
+    stop = time.time()
+    mapping_time = stop - start
+    n_objects = len(main_map)
+    fps = len(dataset) / (mapping_time)
+    test_unique_segments(main_map)
+    log.info("Objects in final map: %d" % n_objects)
+    log.info(f"fps: {fps:.2f}")
+
+    # Save visualizations and map
+    if not cfg.save_map:
+        return None
+
+    output_dir = Path(cfg.output_dir)
+    now = datetime.datetime.now()
+    date_time = now.strftime("%Y-%m-%d-%H-%M-%S.%f")
+    output_dir_map = output_dir / f"scene_{cfg.layout_num}_{dataset.name}_{cfg.name}_{date_time}"
+
+    log.info(f"Saving map, images and config to {output_dir_map}...")
+    grid_image_path = output_dir_map / "object_viz"
+    os.makedirs(grid_image_path, exist_ok=False)
+    main_map.save_object_grids(grid_image_path)
+
+    # Export classes used in segmentation model
+    main_map.classes = list(segmentation_model.classes)
+
+    # Also export some data to standard files
+    main_map.export(output_dir_map)
+
+    # Also save pickle of the map
+    main_map.save(output_dir_map / "map.pkl")
+
+    # Hydra config
+    OmegaConf.save(cfg, output_dir_map / "config.yaml")
+
+    # Few more stats
+    stats = dict(
+        fps=fps, mapping_time=mapping_time, n_objects=n_objects, n_frames=len(dataset)
+    )
+    json.dump(stats, open(output_dir_map / "stats.json", "w"))
+
+    # Create symlink to latest map
+    symlink = output_dir / "latest_map"
+    symlink.unlink(missing_ok=True)
+    os.symlink(output_dir_map.name, symlink)
+    log.info(f"Created symlink to latest map at {symlink}")
+
+    # Move debug directory if it exists
+    if os.path.exists(output_dir / "debug"):
+        os.rename(output_dir / "debug", output_dir_map / "debug")
+
+    return output_dir_map
+
+
+@hydra.main(version_base=None, config_path="conf", config_name="main")
+def hydra_main(cfg: DictConfig) -> None:
+    """Hydra CLI entry point."""
+    main(cfg)
+
+
+if __name__ == "__main__":
+    hydra_main()

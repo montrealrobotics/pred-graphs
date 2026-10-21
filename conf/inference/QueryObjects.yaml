@@ -1,0 +1,15 @@
+_target_: concept_graphs.inference.MapQueryEngine.MapQueryEngine
+map_path: ${map_path}
+ft_extractor: ???
+semantic_sim: ???
+verifier: ???
+receptacles_bbox: ???
+pickupable_to_receptacles: ???
+pickupable_bbox: ???
+pickupable_existence: ???
+top_k: ${top_k}
+use_hungarian: ${use_hungarian}
+use_vlm_verification: ${use_vlm_verification}
+min_dist_sq: ${min_dist_sq}
+receptacle_breakaway_margin: ${receptacle_breakaway_margin}
+device: ${device}

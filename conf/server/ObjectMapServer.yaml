@@ -1,0 +1,5 @@
+defaults:
+  - /inference/toolbox@toolbox: ObjectMapToolbox
+
+_target_: concept_graphs.viz.server.ObjectMapServer.ObjectMapServer
+point_shape: circle

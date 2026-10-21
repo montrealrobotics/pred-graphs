@@ -1,0 +1,79 @@
+from typing import List, Union
+import torch
+import torchvision
+import torchvision.transforms.functional as F
+import numpy as np
+import matplotlib.pyplot as plt
+import textwrap
+
+
+def wrap_text(text, max_length=30):
+    return "\n".join(textwrap.wrap(text, max_length))
+
+
+def plot_grid_images(
+    images: List[Union[np.ndarray, torch.Tensor]],
+    masks: List[np.ndarray] = None,
+    grid_width: int = 4,
+    tag: str = "",
+    caption: str = "",
+) -> None:
+    n_images = len(images)
+    grid_height = int(np.ceil(n_images / grid_width))
+    mask_color = (np.random.rand(3) * 255).astype(np.uint8).reshape((1, 3))
+
+    fig, axs = plt.subplots(
+        grid_height, grid_width, figsize=(grid_width * 4, grid_height * 4)
+    )
+
+    for i, ax in enumerate(axs.flat):
+        if i < n_images:
+            img = images[i]
+            if type(img) == torch.Tensor:
+                img = F.to_pil_image(img)
+            ax.imshow(img)
+            if masks is not None:
+                mask = masks[i]
+                mask = mask[:, :, np.newaxis] * mask_color
+                ax.imshow(mask, alpha=0.5)
+            ax.axis("off")
+        else:
+            ax.axis("off")
+
+    title = f"Tag: {tag}\nCaption: {wrap_text(caption, 40)}"
+    plt.suptitle(title, fontsize=32)
+    plt.tight_layout()
+
+
+def plot_segments(image: np.ndarray, masks: torch.Tensor, class_names: np.ndarray) -> None:
+    image = torchvision.transforms.ToTensor()(image)
+    np.random.seed(42)
+    random_colors = [
+        (r, g, b) for r, g, b in (255 * torch.rand((masks.shape[0], 3))).int()
+    ]
+    img_with_segmentations = torchvision.utils.draw_segmentation_masks(
+        image, masks, alpha=0.6, colors=random_colors
+    )
+    plt.axis("off")
+    plt.imshow(F.to_pil_image(img_with_segmentations))
+    # Draw class labels at the center of each mask
+    for i, mask in enumerate(masks):
+        if mask.sum() == 0:
+            continue
+        y_coords, x_coords = torch.where(mask > 0)
+        center_x = x_coords.float().mean().item()
+        center_y = y_coords.float().mean().item()
+        
+        label = str(class_names[i])
+
+        plt.text(
+            center_x, 
+            center_y, 
+            label, 
+            color='white', 
+            fontsize=8, 
+            fontweight='bold',
+            ha='center', 
+            va='center',
+            bbox=dict(facecolor='black', alpha=0.5, edgecolor='none', boxstyle='round,pad=0.2')
+        )

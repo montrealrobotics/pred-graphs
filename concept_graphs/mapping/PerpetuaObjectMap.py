@@ -1,0 +1,408 @@
+import copy
+from collections import defaultdict
+from enum import Enum
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Self
+
+import dill as pickle
+import numpy as np
+import torch
+import jax
+import jax.numpy as jnp
+
+from .Object import Object, ObjectType
+from .CanonicalVectors import Vector, CanonicalVectors
+from perpetua2.utils.filter_state import Object as Estimator
+from perpetua2.utils.inference import update_object as update_estimator
+from perpetua2.data.procthor import get_data_slice
+import logging
+
+log = logging.getLogger(__name__)
+
+
+class MapState(Enum):
+    COMPLETE = "Complete"
+    INCOMPLETE = "Incomplete"
+
+
+class PerpetuaObjectMap:
+    def __init__(
+        self,
+        pickupable_names: Optional[Iterable[str]] = None,
+        receptacle_names: Optional[Iterable[str]] = None,
+        time: float = 0.0,
+        device: str = "cpu",
+    ):
+        self.pickupable_names = list(pickupable_names or [])
+        self.receptacle_names = [name for name in (receptacle_names or []) if name != "OOB_FAKE_RECEPTACLE"]
+        self.time = time
+        self.initial_time = time
+        self.device = device
+
+        self.objects: Dict[str, Object] = {}
+        self._pickupables: Dict[str, Object] = {}
+        self._receptacles: Dict[str, Object] = {}
+
+        self.edges: Dict[str, List[str]] = {}
+        self.state = MapState.INCOMPLETE
+
+        # Used for resetting to initial state
+        self.initial_edges: Dict[str, List[str]] = {}
+
+        self.semantic_tensor: Optional[torch.Tensor] = None
+        self.pcd_tensors: Optional[List[torch.Tensor]] = None
+        self.vertices_tensor: Optional[torch.Tensor] = None
+        self.centroid_tensor: Optional[torch.Tensor] = None
+
+    def __len__(self) -> int:
+        return len(self.objects)
+
+    def __iter__(self):
+        return iter(self.objects.values())
+
+    def __getitem__(self, item):
+        return self.objects[item]
+
+    def get_pickupables_name(self) -> List[str]:
+        return list(self._pickupables.keys())
+
+    def get_receptacles_name(self) -> List[str]:
+        return list(self._receptacles.keys())
+
+    def has_object(self, name: str) -> bool:
+        return name in self.objects
+
+    def get_object(self, name: str) -> Object:
+        return self.objects[name]
+
+    def get_receptacle(self, name: str) -> Object:
+        return self._receptacles[name]
+
+    def get_pickupable(self, name: str) -> Object:
+        return self._pickupables[name]
+
+    def _add_object(
+        self,
+        name: str,
+        obj: Object,
+        obj_type: ObjectType,
+        target_dict: Optional[Dict[str, Object]] = None,
+        visibility: bool = True,
+        **kwargs,
+    ) -> Object:
+        """Internal helper to handle common object registration logic."""
+        new_obj = self._clone_object(obj)
+        new_obj.obj_type = obj_type
+        new_obj.name = name
+        new_obj.visibility = visibility
+
+        # Set any extra attributes passed (e.g., estimator)
+        for key, value in kwargs.items():
+            setattr(new_obj, key, value)
+
+        self._register_object(name, new_obj)
+
+        # Only add to a specific dictionary if one is provided
+        if target_dict is not None:
+            target_dict[name] = new_obj
+
+        self._refresh_state()
+        self._refresh_geometry_cache()
+        return new_obj
+
+    def add_pickupable(self, name: str, obj: Object, estimator: Estimator, visibility: bool) -> Object:
+        return self._add_object(
+            name,
+            obj,
+            ObjectType.PICKUPABLE,
+            target_dict=self._pickupables,
+            visibility=visibility,
+            estimator=estimator,  # Passed via **kwargs
+        )
+
+    def add_receptacle(self, name: str, obj: Object) -> Object:
+        return self._add_object(name, obj, ObjectType.RECEPTACLE, target_dict=self._receptacles)
+
+    def add_background(self, name: str, obj: Object) -> Object:
+        return self._add_object(name, obj, ObjectType.BACKGROUND)
+
+    def set_initial_edges(self):
+        self.initial_edges = copy.deepcopy(self.edges)
+
+    def reset(self):
+        self.set_edges(
+            self.initial_edges, move_pickupables=True, condition_on_object=True, add_noise=False, strategy="last_seen"
+        )
+        self.time = self.initial_time
+
+    def set_edges(
+        self,
+        edges: Dict[str, List[str]],
+        move_pickupables: bool = True,
+        condition_on_object: bool = True,
+        add_noise: bool = True,
+        strategy: str = "last_seen",
+    ):
+        if edges is None:
+            edges = copy.deepcopy(self.edges)
+        attached = {}
+        for receptacle_name, pickupables in edges.items():
+            for pickupable_name in pickupables:
+                if pickupable_name in self._pickupables and receptacle_name in self._receptacles:
+                    attached[pickupable_name] = receptacle_name
+        self.edges = edges
+
+        for name, pickupable in self._pickupables.items():
+            if name in attached:
+                pickupable.visibility = True
+                if move_pickupables:
+                    pickupable.move(attached[name], add_noise, condition_on_object, strategy)
+            else:
+                pickupable.visibility = False
+
+        self._refresh_geometry_cache()
+
+    def predict(
+        self,
+        timestep: float,
+        threshold: float = 0.5,
+        add_noise: bool = True,
+        condition_on_object: bool = False,
+        strategy: str = "last_seen",
+    ):
+        """Method to predict all pickupable locations at a given timestep."""
+        if isinstance(timestep, float) or isinstance(timestep, int):
+            timestep = jnp.array([timestep], dtype=jnp.float32)
+
+        # Predict edges based on current estimators
+        inferred_edges: Dict[str, List[str]] = defaultdict(list)
+
+        for name, pickupable in self._pickupables.items():
+            if pickupable.estimator is None:
+                raise ValueError(f"Pickupable {name} does not have an associated estimator.")
+            belief = pickupable.predict(timestep)
+            index = jnp.argmax(belief).item()
+            receptacle_name = pickupable.receptacles[index] if belief[index] >= threshold else None
+            if receptacle_name is None or receptacle_name not in self._receptacles:
+                continue
+            inferred_edges[receptacle_name].append(name)
+
+        self.set_edges(inferred_edges, add_noise=add_noise, condition_on_object=condition_on_object, strategy=strategy)
+        self.time = timestep.item()
+
+    def object_predict(
+        self,
+        object_id: str,
+        timestep: float,
+        threshold: float = 0.5,
+        add_noise: bool = True,
+        condition_on_object: bool = True,
+        strategy: str = "last_seen",
+    ) -> Dict[str, float]:
+        """Method to predict a single pickupable location at a given timestep."""
+        if isinstance(timestep, float) or isinstance(timestep, int):
+            timestep = jnp.array([timestep], dtype=jnp.float32)
+
+        new_edges = copy.deepcopy(self.edges)
+        pickupable = self.get_pickupable(object_id)
+        if pickupable.estimator is None:
+            raise ValueError(f"Pickupable {object_id} does not have an associated estimator.")
+        belief = pickupable.predict(timestep)
+        index = jnp.argmax(belief).item()
+        receptacle_name = pickupable.receptacles[index] if belief[index] >= threshold else None
+
+        # Update edges
+        # Remove from previous receptacle
+        for _, pickupables in new_edges.items():
+            if object_id in pickupables:
+                pickupables.remove(object_id)
+        # Add to new receptacle if valid
+        if receptacle_name is not None and receptacle_name in self._receptacles:
+            if receptacle_name not in new_edges:
+                new_edges[receptacle_name] = []
+            new_edges[receptacle_name].append(object_id)
+            pickupable.visibility = True
+            # Force to move object to the last position it was seen
+            pickupable.move(receptacle_name, add_noise, condition_on_object, strategy)
+        else:
+            pickupable.visibility = False
+
+        self.edges = new_edges
+        self.time = timestep.item()
+        self._refresh_geometry_cache()
+
+        return {s: b.item() for b, s in zip(belief, pickupable.receptacles)}
+
+    def update_canonical_vectors(self, canonical_vectors: Dict[str, CanonicalVectors]):
+        for receptacle_name, vectors in canonical_vectors.items():
+            if receptacle_name not in self._receptacles:
+                continue
+            rec = self._receptacles[receptacle_name]
+            rec.canonical_pos_vectors.add_vectors(vectors)
+
+        for rec in self._receptacles.values():
+            if rec.canonical_pos_vectors:
+                continue
+            rec.canonical_pos_vectors += self._default_canonical_vector(rec)
+
+    def save(self, map_dir: Path):
+        log.info(f"Saving PerpetuaObjectMap to {map_dir}")
+        map_dir = Path(map_dir)
+        map_dir.mkdir(parents=True, exist_ok=True)
+        map_file = map_dir / "perpetua_map.pkl"
+
+        for obj in self.objects.values():
+            obj.pcd_to_np()
+
+        with open(map_file, "wb") as f:
+            pickle.dump(self, f)
+
+        for obj in self.objects.values():
+            obj.pcd_to_o3d()
+
+    def update(
+        self,
+        object_containment_obs: Dict[str, Dict[str, jnp.ndarray]],
+        observation_time: float,
+        p_m: float,
+        p_f: float,
+    ):
+        for object_id, obs in object_containment_obs.items():
+            if object_id not in self._pickupables:
+                continue
+            pickupable = self._pickupables[object_id]
+            receptacle_names = list(obs.keys())
+            observations = jnp.array(list(obs.values())).flatten()
+            timestamps = jnp.full_like(observations, observation_time)
+            pickupable.update(
+                observations,
+                timestamps,
+                p_m,
+                p_f,
+                receptacle_names,
+            )
+
+    def update_estimators(
+        self,
+        data_path: str,
+        load_week: bool,
+        p_m: float,
+        p_f: float,
+        alpha: float,
+        decay_rate: float,
+        key: jax.random.PRNGKey,
+        map_time: float,
+    ):
+        assert map_time == self.time, "Map time should exactly match current map time."
+        # Update belief of all estimators in the map
+        data = get_data_slice(
+            folder=data_path,
+            current_time=map_time,
+            get_all_week=load_week,
+            noise=p_m,
+            key=key,
+        )
+        # Update all objects
+        for obj in self._pickupables.values():
+            estimator = obj.estimator.update_alpha(alpha)
+            estimator = estimator.update_decay_rate(decay_rate)
+            estimator = update_estimator(
+                data,
+                estimator,
+                p_m,
+                p_f,
+            )
+            obj.estimator = estimator
+
+    @classmethod
+    def load(cls, path: str) -> Self:
+        log.info(f"Loading PerpetuaObjectMap from {path}")
+        map_file = Path(path) / "perpetua_map.pkl"
+        with open(map_file, "rb") as f:
+            loaded_map: Self = pickle.load(f)
+
+        for obj in loaded_map.objects.values():
+            if isinstance(obj.pcd, dict):
+                obj.pcd_to_o3d()
+            obj.set_parent_map(loaded_map)
+
+        loaded_map._rebuild_groups()
+        loaded_map._refresh_geometry_cache()
+        loaded_map._refresh_state()
+        return loaded_map
+
+    def _register_object(self, name: str, obj: Object):
+        obj.set_parent_map(self)
+        self.objects[name] = obj
+
+    def _clone_object(self, obj: Object) -> Object:
+        return copy.deepcopy(obj)
+
+    def _rebuild_groups(self):
+        self._pickupables = {name: obj for name, obj in self.objects.items() if obj.obj_type == ObjectType.PICKUPABLE}
+        self._receptacles = {name: obj for name, obj in self.objects.items() if obj.obj_type == ObjectType.RECEPTACLE}
+
+    def _refresh_state(self):
+        pickupable_target = len(self.pickupable_names)
+        receptacle_target = len(self.receptacle_names)
+        if len(self._pickupables) == pickupable_target and len(self._receptacles) == receptacle_target:
+            self.state = MapState.COMPLETE
+        else:
+            self.state = MapState.INCOMPLETE
+
+    def refresh_state(self):
+        self._refresh_state()
+
+    def _refresh_geometry_cache(self):
+        if len(self.objects) == 0:
+            self.semantic_tensor = None
+            self.pcd_tensors = None
+            self.vertices_tensor = None
+            self.centroid_tensor = None
+            return
+
+        semantic = []
+        centroids = []
+        vertices = []
+        pcds = []
+
+        for obj in self.objects.values():
+            semantic.append(obj.semantic_ft)
+            centroids.append(obj.centroid)
+            vertices.append(obj.vertices)
+            pcds.append(torch.from_numpy(obj.pcd_np).to(self.device))
+
+        self.semantic_tensor = torch.from_numpy(np.stack(semantic, axis=0)).to(self.device)
+        self.centroid_tensor = torch.from_numpy(np.stack(centroids, axis=0)).to(self.device)
+        self.vertices_tensor = torch.from_numpy(np.stack(vertices, axis=0)).to(self.device)
+        self.pcd_tensors = pcds
+
+    def _default_canonical_vector(self, receptacle: Object) -> np.ndarray:
+        vertices = receptacle.vertices
+        min_x = vertices[:, 0].min()
+        max_x = vertices[:, 0].max()
+        min_y = vertices[:, 1].min()
+        max_y = vertices[:, 1].max()
+        max_z = vertices[:, 2].max()
+        center_x = 0.5 * (min_x + max_x)
+        center_y = 0.5 * (min_y + max_y)
+        target = np.array([center_x, center_y, max_z], dtype=np.float32)
+        return Vector.create(target - receptacle.centroid, "default")
+
+    def downsample_objects(self, voxel_size: float = None):
+        for obj in self:
+            if voxel_size is not None:
+                obj.downsample_pcd(voxel_size=voxel_size)
+            else:
+                obj.downsample()
+
+    def to(self, device: str):
+        self.device = device
+        if self.semantic_tensor is not None:
+            self.semantic_tensor = self.semantic_tensor.to(device)
+        if self.centroid_tensor is not None:
+            self.centroid_tensor = self.centroid_tensor.to(device)
+        if self.pcd_tensors is not None:
+            self.pcd_tensors = [p.to(device) for p in self.pcd_tensors]
+        if self.vertices_tensor is not None:
+            self.vertices_tensor = self.vertices_tensor.to(device)

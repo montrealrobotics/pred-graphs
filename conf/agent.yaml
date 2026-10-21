@@ -1,0 +1,58 @@
+defaults:
+  # Privileged perception; use inference/agent@agent=ProcTHORAgent for SAM3 perception
+  - inference/agent@agent: PrivilegedProcTHORAgent
+  - mapping/layout: layout
+  - paths: default
+  - override hydra/job_logging: custom_colorlog
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+# Map and sim configuration params
+map_path: ${maps_dir}/scene_${layout_num}
+map_time: 504
+world_time: 524 # Simulator hour to start at (>= map_time)
+
+# Number of sampled queries to run before handing over to the viewer (0: interactive only)
+demo_queries: 0
+
+# For the privileged agent only
+apn_dist_thresh: 5.0
+
+# Agent params
+goal_thresh: 1.0 # Minimum distance to consider having reached a location
+top_k: 2 # Max number of receptacle proposals to consider per object
+max_attempts: 2 # Max number of navigation attempts per object per query
+step_every: 5 # Max path nodes per navigation step before the agent re-observes
+do_update: false # Re-predict and re-target from new observations while navigating
+predict_every: 1 # With do_update, re-predict every N steps
+obj_threshold: 0.2   # Minimum confidence to consider an object detected
+max_iterations: 1000 # Maximum number of iterations allowed
+use_vlm_verification: false # Used for map query engine
+
+# Filter params
+p_m: 0.05
+p_f: 0.05
+# decay_rate=ϵ^(1/H), where H is observation horizon (250) and eps (0.1) is target influence value of Hth obs
+decay_rate: 0.990
+# Evidence annealing factor exp(−λ⋅time)=ϵ 
+# \lambda = -\frac{1}{time} \log(\epsilon) if time=0.5 units (30m) and eps=0.01, then λ=9.21034
+alpha: 9.21034
+
+# Img params
+width: 1080
+height: 1080
+
+# Object mapping (ProcTHORAgent perception)
+depth_trunc: 3.0
+sim_thresh: 0.0
+geometric_sim_thresh: 0.75
+semantic_sim_thresh: 0.85
+
+overlap_eps: 0.025
+voxel_size: 0.025
+denoising_eps: 0.1
+final_min_segments: 1
+
+seed: 42
+device: cuda
+debug: false

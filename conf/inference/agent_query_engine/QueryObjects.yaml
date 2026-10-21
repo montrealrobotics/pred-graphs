@@ -1,0 +1,10 @@
+_target_: concept_graphs.inference.MapQueryEngine.MapQueryEngine
+_partial_: true
+
+# Static config parameters (runtime params like data_source, receptacles_bbox, etc. are passed at instantiation)
+top_k: ${agent.update_map_query_top_k}
+use_hungarian: ${agent.update_map_query_hungarian}
+use_vlm_verification: ${use_vlm_verification}
+min_dist_sq: 1.0
+receptacle_breakaway_margin: 0.05
+device: ${device}

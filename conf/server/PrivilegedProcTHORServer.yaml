@@ -1,0 +1,7 @@
+defaults:
+  - /inference/toolbox@toolbox: PerpetuaMapToolbox
+
+_target_: concept_graphs.viz.server.ProcTHORServer.PrivilegedServer
+downsample_factor: 2
+point_shape: circle
+stop_server: false

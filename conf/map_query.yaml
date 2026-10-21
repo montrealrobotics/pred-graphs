@@ -1,0 +1,25 @@
+defaults:
+  - algo: VerifyObjects
+  - dataset: SemiStaticSim
+  - mapping/layout: layout
+  - paths: default
+  - override hydra/job_logging: custom_colorlog
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+map_path: ${output_dir}/latest_map
+perpetua_estimators_path: ${estimators_dir}/scene_${layout_num}
+perpetua_map_full_overwrite: true
+build_perpetua_map: true
+device: cuda
+debug: false
+seed: 42
+
+# Verify matches with an OpenAI VLM (needs OPENAI_API_KEY)
+use_vlm_verification: false
+vlm_verifier:
+  model: gpt-5.2
+
+# Img size
+width: 640  
+height: 640

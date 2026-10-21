@@ -1,0 +1,37 @@
+defaults:
+  - algo: CGDetector
+  - dataset: SemiStaticSim
+  - mapping/layout: layout
+  - paths: default
+  - override hydra/job_logging: custom_colorlog
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+name: cg-detector
+sim_thresh: 0.0
+geometric_sim_thresh: 0.6
+semantic_sim_thresh: 0.85
+
+overlap_eps: 0.025
+voxel_size: 0.025
+denoising_eps: 0.1
+max_points_pcd: 8000
+final_min_segments: 1
+
+# Img size
+width: 640  
+height: 640
+
+device: cuda
+debug: false
+save_map: true
+seed: 123
+
+dataloader:
+  _target_: torch.utils.data.DataLoader
+  batch_size: 1
+  shuffle: false
+  num_workers: 2
+  pin_memory: false
+  collate_fn:
+    _target_: rgbd_dataset.dataloader.collate_fn_np_single_cb

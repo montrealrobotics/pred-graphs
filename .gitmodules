@@ -1,0 +1,6 @@
+[submodule "rgbd_dataset"]
+	path = rgbd_dataset
+	url = https://github.com/MikeS96/rgbd-dataset.git
+[submodule "perpetua2"]
+	path = perpetua2
+	url = https://github.com/montrealrobotics/perpetua-star.git

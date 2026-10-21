@@ -1,0 +1,6 @@
+defaults:
+  - BaseProcTHORAgent
+  - _self_
+
+_target_: concept_graphs.inference.agent.ProcTHORAgent.ProcTHORAgent
+name: "ProcTHORAgent"

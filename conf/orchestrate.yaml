@@ -1,0 +1,20 @@
+defaults:
+  - mapping/layout: layout
+  - paths: default
+  - override hydra/job_logging: custom_colorlog
+  - override hydra/hydra_logging: colorlog
+  - _self_
+
+# Orchestration settings
+max_iterations: 3 # Maximum number of scenes to process before giving up
+first_run_index: 504 # First scene index to process (will run run_index, run_index-1, ...) or null to process all available
+sequence_stride: 1 # Stride for dataset (passed to main.py)
+keyframes: false # Whether to only use keyframes from the dataset
+segmentation_model: SAM3 # Passed to main.py as segmentation=...: SAM3, YoloMobileSAM or GTProcthor
+use_vlm_verification: false # Passed to map_query.py; needs OPENAI_API_KEY
+
+main_config_name: main
+query_config_name: map_query
+
+device: cuda
+seed: 42
