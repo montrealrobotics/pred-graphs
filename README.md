@@ -1,5 +1,9 @@
 # Predictive Graphs
 
+<p align="center">
+  <img src="assets/banner.jpg" alt="Predictive Graphs overview: scene graphs collected over time train Perpetua* estimators, which a robot queries to predict where objects are now" width="100%">
+</p>
+
 Code for [Predictive Spatio-Temporal Scene Graphs for Semi-Static Scenes](https://montrealrobotics.ca/predictive-graphs/) (Predictive Graphs).
 
 A Predictive Graph is an object map whose edges between small objects (pickupables) and the furniture they rest on (receptacles) are predicted over time by [Perpetua*](https://github.com/montrealrobotics/perpetua-star) estimators. A robot uses it to answer "where is this object likely to be now?" and to go and look for it. This repository contains:
