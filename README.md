@@ -4,7 +4,7 @@ Code for [Predictive Spatio-Temporal Scene Graphs for Semi-Static Scenes](https:
 
 A Predictive Graph is an object map whose edges between small objects (pickupables) and the furniture they rest on (receptacles) are predicted over time by [Perpetua*](https://github.com/montrealrobotics/perpetua-star) estimators. A robot uses it to answer "where is this object likely to be now?" and to go and look for it. This repository contains:
 
-- **A navigation demo** in the [SemiStaticSim](https://github.com/Velythyl/SemiStaticSim) simulator (ProcTHOR houses rendered with AI2-THOR), running on a map and estimators that we provide.
+- **A navigation demo** in the [SemiStaticSim](https://pypi.org/project/semistaticsim/) simulator (ProcTHOR houses rendered with AI2-THOR), running on a map and estimators that we provide.
 - **Map building**: from posed RGB-D frames to an object map (segmentation, CLIP features, 3D fusion), then matching map objects to the scene's pickupables and receptacles and attaching their Perpetua* estimators.
 - **Viewers** for the map and the agent, in the browser through [viser](https://viser.studio).
 

@@ -40,7 +40,7 @@ dependencies = [
     "langchain",
     "langchain-openai",
     "viser",
-    "semistaticsim==0.6.0",
+    "semistaticsim==0.6.1",
     "rgbd-dataset",
     "perpetua2[procthor]",
 ]

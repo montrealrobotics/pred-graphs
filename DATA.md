@@ -25,7 +25,7 @@ Keep the `test/<layout>/0` part of the path: SemiStaticSim reads the split, layo
 
 ## 1. Generate SemiStaticSim data
 
-[SemiStaticSim](https://github.com/Velythyl/SemiStaticSim) simulates a house over four weeks (672 hours). It first samples where each small object is at every hour (the ground truth), then renders a robot exploring the house each hour, recording RGB-D frames, poses, semantic masks and the objects it saw (the privileged runs).
+[SemiStaticSim](https://pypi.org/project/semistaticsim/) simulates a house over four weeks (672 hours). It first samples where each small object is at every hour (the ground truth), then renders a robot exploring the house each hour, recording RGB-D frames, poses, semantic masks and the objects it saw (the privileged runs).
 
 ### 1a. Object schedules
 

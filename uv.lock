@@ -426,7 +426,7 @@ requires-dist = [
     { name = "rich" },
     { name = "sam3", git = "https://github.com/kumaradityag/sam3.git?rev=140986d93b53823cd0ad3f6dcafde354554ab769" },
     { name = "scipy" },
-    { name = "semistaticsim", specifier = "==0.6.0" },
+    { name = "semistaticsim", specifier = "==0.6.1" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "tqdm" },
@@ -2607,7 +2607,7 @@ requires-dist = [
     { name = "scienceplots", specifier = ">=2.2.0" },
     { name = "scipy", specifier = "==1.14.1" },
     { name = "seaborn", specifier = ">=0.13.2" },
-    { name = "semistaticsim", marker = "extra == 'procthor'", specifier = ">=0.5.12" },
+    { name = "semistaticsim", marker = "extra == 'procthor'", specifier = ">=0.6.1,<0.7" },
     { name = "tqdm", specifier = "==4.66.5" },
 ]
 provides-extras = ["cuda", "llm", "procthor"]
@@ -3407,7 +3407,7 @@ requires-dist = [
     { name = "opencv-python" },
     { name = "pytest", marker = "extra == 'test'" },
     { name = "scipy" },
-    { name = "semistaticsim", specifier = ">=0.5.1" },
+    { name = "semistaticsim", specifier = ">=0.6.1,<0.7" },
     { name = "torch" },
     { name = "viser", specifier = ">=1.0.16" },
 ]
@@ -3679,7 +3679,7 @@ wheels = [
 
 [[package]]
 name = "semistaticsim"
-version = "0.6.0"
+version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ai2thor" },
@@ -3705,9 +3705,9 @@ dependencies = [
     { name = "tiktoken" },
     { name = "wheel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/26/ea890d4b6aac23479b64c55bfed147195d22edba920a53ed92753a8ee890/semistaticsim-0.6.0.tar.gz", hash = "sha256:7382d2adc87a5f93820b0b368ecd11e98a089893329d8da34f62dab8b774e897", size = 92113, upload-time = "2026-01-19T20:55:50.198Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/8a/5afb6b5f799730398b216f5fdda199ab1fa3126eb6eb685345d3d7a25a46/semistaticsim-0.6.1.tar.gz", hash = "sha256:ba5ce2c49a9ac2f92b170c139c70c8f9f1d8594c79ec32708f6b48ba0f27d3fa", size = 101467, upload-time = "2026-10-22T14:26:34.143Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/c4/baee6f9a602adb58693476cbd6a8b50132c52f2a0289a17f3b9a10bf38e5/semistaticsim-0.6.0-py3-none-any.whl", hash = "sha256:6a7c14c6515481a1b5dc05ce41e5e42752b92ae2d5167375acc6d88c63a8b2f9", size = 105129, upload-time = "2026-01-19T20:55:48.724Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/4f/2498bb54f1302077a5962be9fb3cbccaf53631031331a9ac3892475ada0b/semistaticsim-0.6.1-py3-none-any.whl", hash = "sha256:8bc0f4e74172802ced3ff74ff64765def6cb94210c0ed3d5605d6cfaae297824", size = 116845, upload-time = "2026-10-22T14:26:35.274Z" },
 ]
 
 [[package]]
